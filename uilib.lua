@@ -91,9 +91,8 @@ local function jsonEncode(t)
             if pcall(function() return HttpService:JSONEncode(val) end) then safe[k] = val end
         end
         local ok2, r2 = pcall(function() return HttpService:JSONEncode(safe) end)
-        if ok2 then pcall(function() print("[INSui b4] partial save (dropped unencodable branch)") end); return r2 end
+        if ok2 then return r2 end
     end
-    pcall(function() print("[INSui b4] JSONEncode fail:", r) end)
     return nil
 end
 local function jsonDecode(s) local ok,r = pcall(function() return HttpService:JSONDecode(s) end); return ok and r or nil end
