@@ -66,7 +66,22 @@ local delfile   = hostFn("delfile")
 
 local HttpService
 pcall(function() HttpService = game:GetService("HttpService") end)
-local function jsonEncode(t) local ok,r = pcall(function() return HttpService:JSONEncode(t) end); return ok and r or nil end
+local function jsonSafe(v, seen)
+    local t = type(v)
+    if t == "number" then if v ~= v or v == math.huge or v == -math.huge then return 0 end return v   -- NaN/inf break JSONEncode -> nil -> silent save failure
+    elseif t == "string" or t == "boolean" then return v
+    elseif t == "table" then
+        seen = seen or {}
+        if seen[v] then return nil end                 -- cyclic ref -> break
+        seen[v] = true
+        local o = {}
+        for k, val in pairs(v) do local kt = type(k); if kt == "string" or kt == "number" then o[k] = jsonSafe(val, seen) end end
+        seen[v] = nil
+        return o
+    end
+    return nil                                          -- userdata / function -> drop
+end
+local function jsonEncode(t) local ok,r = pcall(function() return HttpService:JSONEncode(jsonSafe(t)) end); if not ok then pcall(function() print("[INSui] JSONEncode fail:", r) end) end; return ok and r or nil end
 local function jsonDecode(s) local ok,r = pcall(function() return HttpService:JSONDecode(s) end); return ok and r or nil end
 
 local instanceId = {}
@@ -3115,9 +3130,10 @@ local function serializeConfig()
 end
 function ui:SaveConfig(name)
     name = tostring(name or ProjectState.configName or "default")
-    ensureFolder()
     local enc = jsonEncode(serializeConfig())
-    if enc and writefile then pcall(writefile, cfgDir() .. "/" .. name .. ".json", enc) end
+    if not enc then return self end                     -- encode failed -> don't leave an empty folder
+    ensureFolder()
+    if writefile then pcall(writefile, cfgDir() .. "/" .. name .. ".json", enc) end
     return self
 end
 local function applyConfigData(data)
