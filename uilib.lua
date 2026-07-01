@@ -75,7 +75,7 @@ local function jsonSafe(v, seen)
         if seen[v] then return nil end                 -- cyclic ref -> break
         seen[v] = true
         local o = {}
-        for k, val in pairs(v) do local kt = type(k); if kt == "string" or kt == "number" then o[k] = jsonSafe(val, seen) end end
+        pcall(function() for k, val in pairs(v) do local kt = type(k); if kt == "string" or kt == "number" then o[k] = jsonSafe(val, seen) end end end)  -- pcall: a live table mutated mid-iterate throws "invalid key to 'next'"; snapshot what we can, don't nuke the whole save
         seen[v] = nil
         return o
     end
