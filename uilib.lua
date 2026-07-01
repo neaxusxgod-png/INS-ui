@@ -81,7 +81,21 @@ local function jsonSafe(v, seen)
     end
     return nil                                          -- userdata / function -> drop
 end
-local function jsonEncode(t) local ok,r = pcall(function() return HttpService:JSONEncode(jsonSafe(t)) end); if not ok then pcall(function() print("[INSui] JSONEncode fail:", r) end) end; return ok and r or nil end
+local function jsonEncode(t)
+    local s = jsonSafe(t)
+    local ok, r = pcall(function() return HttpService:JSONEncode(s) end)
+    if ok then return r end
+    if type(s) == "table" then                          -- one branch failed to encode -> drop only it, save the rest
+        local safe = {}
+        for k, val in pairs(s) do
+            if pcall(function() return HttpService:JSONEncode(val) end) then safe[k] = val end
+        end
+        local ok2, r2 = pcall(function() return HttpService:JSONEncode(safe) end)
+        if ok2 then pcall(function() print("[INSui b4] partial save (dropped unencodable branch)") end); return r2 end
+    end
+    pcall(function() print("[INSui b4] JSONEncode fail:", r) end)
+    return nil
+end
 local function jsonDecode(s) local ok,r = pcall(function() return HttpService:JSONDecode(s) end); return ok and r or nil end
 
 local instanceId = {}
